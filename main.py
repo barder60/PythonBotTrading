@@ -119,6 +119,7 @@ class KrakenBot:
         r = self.tickerData(self.tickerRequest)
         bot.excelStart()
         bitcoinValue = r['result']['XXBTZEUR']['c'][0]
+        bitcoinVolume = r['result']['XXBTZEUR']['c'][1]
         self.sheet.write(self.currentRow, 0, datetime.datetime.now().strftime("%d/%m/%Y-%H:%M:%S:%f"))
         self.sheet.write(self.currentRow, 1, float(bitcoinValue))
         if self.currentRow > 10:
@@ -128,21 +129,47 @@ class KrakenBot:
         orders = self.krakenOpenOrders()
 
         if len(orders['result']['open']) == 0:
-            self.createOrderBuy()
+            self.createOrderBuy(bitcoinValue,bitcoinVolume)
         elif len(orders['result']['open']) != 1:
             print('sellfunction')
         self.writeBook.save(fnameExcel)
         return r
 
-    def createOrderBuy(self):
+    def createOrderBuy(self, bitcoinValue, bitcoinVolume):
         if self.checkRules():
+            Kraken_nonce = str(int(time.time() * 1000))
+            Kraken_POST_data = {
+                'nonce': Kraken_nonce,
+                'pair': 'XXBTZEUR',
+                'type' : 'sell',
+                'ordertype' : 'market',
+                'price': bitcoinValue,
+                'volume': bitcoinVolume
+            }
+
+            URL_path = 'https://api.kraken.com/0/private/AddOrder'
+            URI_path = '/0/private/AddOrder'
+            url_encoded_post_data = urllib.parse.urlencode(Kraken_POST_data)
+
+            encoded = (str(Kraken_POST_data['nonce']) + url_encoded_post_data).encode()
+
+            msg = URI_path.encode() + hashlib.sha256(encoded).digest()
+
+            krakenSign = hmac.new(base64.b64decode(self.api_secret), msg, hashlib.sha512)
+
+            sign = base64.b64encode(krakenSign.digest())
+
+            self.Kraken_headers['API-Sign'] = sign.decode()
+            response = requests.post(URL_path, data=Kraken_POST_data, headers=self.Kraken_headers)
+            result = response.json()
+            print(result)
             print('make order')
-        print('no make order')
+        #print('no make order')
         pass
     def checkRules(self):
-        if self.sheetRead.cell(self.currentRow-2, 3).value > 0.3:
+        if self.sheetRead.cell(self.currentRow-2, 3).value > 0.1:
             return True
-        return False
+        return True
     def createMedium(self, bitcoinValue):
         stockMedium = []
         medium = 0
@@ -180,8 +207,8 @@ if __name__ == '__main__':
     print('assetsPair : ', bot.assetsAll())
     print('tickersList : ', bot.tickersList())
     print('tickerListPair : ', bot.tickerListPair())
-    print('tickerRequested', bot.registerTickerDB())
-    while True:
-        print('run register')
-        print('tickerRequested : ', bot.registerTickerDB())
-        time.sleep(5)
+    #print('tickerRequested', bot.registerTickerDB())
+    #while True:
+    print('run register')
+    print('tickerRequested : ', bot.registerTickerDB())
+    #time.sleep(5)
