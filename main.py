@@ -141,7 +141,7 @@ class KrakenBot:
             Kraken_POST_data = {
                 'nonce': Kraken_nonce,
                 'pair': 'XXBTZEUR',
-                'type' : 'sell',
+                'type' : 'buy',
                 'ordertype' : 'market',
                 'price': bitcoinValue,
                 'volume': bitcoinVolume
